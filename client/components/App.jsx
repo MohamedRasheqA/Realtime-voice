@@ -16,7 +16,7 @@ export default function App() {
       // Hardcoded API key for testing
       // IMPORTANT: This is not recommended for production use!
       // In production, always fetch keys securely from your server
-      const EPHEMERAL_KEY = "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"; // Replace with your actual API key
+      const EPHEMERAL_KEY = process.env.OPENAI_API_KEY; // Replace with your actual API key
       
       // Create a peer connection
       const pc = new RTCPeerConnection();

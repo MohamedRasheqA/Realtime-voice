@@ -3,7 +3,7 @@
   "scripts": {
     "dev": "node server.js --dev",
     "start": "node server.js",
-    "build": "npm run build:client && npm run build:server",
+    "build": "mkdir -p dist && npm run build:client && npm run build:server",
     "build:client": "vite build --outDir dist --ssrManifest",
     "build:server": "vite build --outDir dist/server --ssr /index.js",
     "devinstall": "zx ../../devinstall.mjs -- node server.js --dev",

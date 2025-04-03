@@ -3,9 +3,8 @@
   "scripts": {
     "dev": "node server.js --dev",
     "start": "node server.js",
-    "build": "mkdir -p dist && npm run build:client && npm run build:server",
-    "build:client": "vite build --outDir dist --ssrManifest",
-    "build:server": "vite build --outDir dist/server --ssr /index.js",
+    "build": "vite build",
+    "vercel-build": "vite build",
     "devinstall": "zx ../../devinstall.mjs -- node server.js --dev",
     "lint": "eslint . --ext .js,.jsx --fix"
   },

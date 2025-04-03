@@ -1,22 +1,31 @@
 import express from "express";
-import fs from "fs";
-import { createServer as createViteServer } from "vite";
-import "dotenv/config";
+import { fileURLToPath } from "url";
+import { dirname, join } from "path";
+import dotenv from "dotenv";
 
+// Load environment variables
+dotenv.config();
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const isProduction = process.env.NODE_ENV === "production";
 const app = express();
-const port = process.env.PORT || 3000;
 const apiKey = process.env.OPENAI_API_KEY;
 
-// Configure Vite middleware for React client
-const vite = await createViteServer({
-  server: { middlewareMode: true },
-  appType: "custom",
-});
-app.use(vite.middlewares);
+// Serve static files
+app.use(express.static(join(__dirname, "dist")));
 
 // API route for token generation
 app.get("/token", async (req, res) => {
   try {
+    if (!apiKey) {
+      return res.status(500).json({ 
+        error: { 
+          message: "OpenAI API key not configured", 
+          type: "server_error" 
+        } 
+      });
+    }
+    
     const response = await fetch(
       "https://api.openai.com/v1/realtime/sessions",
       {
@@ -36,29 +45,27 @@ app.get("/token", async (req, res) => {
     res.json(data);
   } catch (error) {
     console.error("Token generation error:", error);
-    res.status(500).json({ error: "Failed to generate token" });
+    res.status(500).json({ 
+      error: { 
+        message: error.message || "Failed to generate token", 
+        type: "server_error" 
+      } 
+    });
   }
 });
 
-// Render the React client
-app.use("*", async (req, res, next) => {
-  const url = req.originalUrl;
-
-  try {
-    const template = await vite.transformIndexHtml(
-      url,
-      fs.readFileSync("./client/index.html", "utf-8"),
-    );
-    const { render } = await vite.ssrLoadModule("./client/entry-server.jsx");
-    const appHtml = await render(url);
-    const html = template.replace(`<!--ssr-outlet-->`, appHtml?.html);
-    res.status(200).set({ "Content-Type": "text/html" }).end(html);
-  } catch (e) {
-    vite.ssrFixStacktrace(e);
-    next(e);
-  }
+// Serve index.html for all other routes (SPA fallback)
+app.get("*", (req, res) => {
+  res.sendFile(join(__dirname, "dist", "index.html"));
 });
 
-app.listen(port, () => {
-  console.log(`Express server running on *:${port}`);
-});
+// Start the server if not in production (Vercel handles this in production)
+if (!isProduction) {
+  const port = process.env.PORT || 3000;
+  app.listen(port, () => {
+    console.log(`Server running at http://localhost:${port}`);
+  });
+}
+
+// Export the Express app for Vercel
+export default app;

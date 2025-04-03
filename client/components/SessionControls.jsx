@@ -1,26 +1,66 @@
 import { useState } from "react";
-import { CloudLightning, CloudOff, MessageSquare } from "react-feather";
+import { CloudLightning, CloudOff, MessageSquare, Key } from "react-feather";
 import Button from "./Button";
 
-function SessionStopped({ startSession }) {
+function SessionStopped({ startSession, apiKey, setApiKey, isKeyValid }) {
   const [isActivating, setIsActivating] = useState(false);
+  const [showKeyInput, setShowKeyInput] = useState(false);
+  const [tempApiKey, setTempApiKey] = useState(apiKey);
 
   function handleStartSession() {
     if (isActivating) return;
 
     setIsActivating(true);
-    startSession();
+    startSession().finally(() => {
+      setIsActivating(false);
+    });
+  }
+
+  function handleSaveKey() {
+    setApiKey(tempApiKey);
+    setShowKeyInput(false);
   }
 
   return (
     <div className="flex items-center justify-center w-full h-full">
-      <Button
-        onClick={handleStartSession}
-        className={isActivating ? "bg-gray-600" : "bg-red-600"}
-        icon={<CloudLightning height={16} />}
-      >
-        {isActivating ? "starting session..." : "start session"}
-      </Button>
+      {showKeyInput ? (
+        <div className="flex items-center gap-2 w-full">
+          <input
+            type="password"
+            className="flex-1 p-2 border border-gray-300 rounded"
+            placeholder="Enter your OpenAI API key"
+            value={tempApiKey}
+            onChange={(e) => setTempApiKey(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleSaveKey();
+            }}
+          />
+          <Button onClick={handleSaveKey} className="bg-green-600">
+            Save
+          </Button>
+          <Button onClick={() => setShowKeyInput(false)}>
+            Cancel
+          </Button>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2">
+          <Button
+            onClick={handleStartSession}
+            className={isActivating ? "bg-gray-600" : "bg-red-600"}
+            icon={<CloudLightning height={16} />}
+            disabled={!isKeyValid}
+          >
+            {isActivating ? "starting session..." : "start session"}
+          </Button>
+          <Button
+            onClick={() => setShowKeyInput(true)}
+            icon={<Key height={16} />}
+            className="bg-blue-600"
+          >
+            {apiKey ? "change API key" : "set API key"}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
@@ -70,21 +110,23 @@ export default function SessionControls({
   stopSession,
   sendClientEvent,
   sendTextMessage,
-  serverEvents,
+  events,
   isSessionActive,
+  apiKey,
+  setApiKey,
+  isKeyValid,
 }) {
-  return (
-    <div className="flex gap-4 border-t-2 border-gray-200 h-full rounded-md">
-      {isSessionActive ? (
-        <SessionActive
-          stopSession={stopSession}
-          sendClientEvent={sendClientEvent}
-          sendTextMessage={sendTextMessage}
-          serverEvents={serverEvents}
-        />
-      ) : (
-        <SessionStopped startSession={startSession} />
-      )}
-    </div>
+  return isSessionActive ? (
+    <SessionActive
+      stopSession={stopSession}
+      sendTextMessage={sendTextMessage}
+    />
+  ) : (
+    <SessionStopped
+      startSession={startSession}
+      apiKey={apiKey}
+      setApiKey={setApiKey}
+      isKeyValid={isKeyValid}
+    />
   );
 }

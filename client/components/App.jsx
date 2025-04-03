@@ -8,15 +8,54 @@ export default function App() {
   const [isSessionActive, setIsSessionActive] = useState(false);
   const [events, setEvents] = useState([]);
   const [dataChannel, setDataChannel] = useState(null);
+  const [apiKey, setApiKey] = useState(localStorage.getItem("openai_api_key") || "");
+  const [isKeyValid, setIsKeyValid] = useState(false);
   const peerConnection = useRef(null);
   const audioElement = useRef(null);
 
+  // Save API key to localStorage when it changes
+  useEffect(() => {
+    if (apiKey) {
+      localStorage.setItem("openai_api_key", apiKey);
+    }
+  }, [apiKey]);
+
+  async function validateApiKey(key) {
+    try {
+      const response = await fetch("https://api.openai.com/v1/models", {
+        headers: {
+          Authorization: `Bearer ${key}`,
+        },
+      });
+      
+      const isValid = response.ok;
+      setIsKeyValid(isValid);
+      return isValid;
+    } catch (error) {
+      console.error("Error validating API key:", error);
+      setIsKeyValid(false);
+      return false;
+    }
+  }
+
   async function startSession() {
     try {
-      // Hardcoded API key for testing
-      // IMPORTANT: This is not recommended for production use!
-      // In production, always fetch keys securely from your server
-      const EPHEMERAL_KEY = process.env.OPENAI_API_KEY; // Replace with your actual API key
+      // Validate the API key first
+      if (!apiKey) {
+        alert("Please enter your OpenAI API key");
+        return;
+      }
+      
+      if (!isKeyValid) {
+        const valid = await validateApiKey(apiKey);
+        if (!valid) {
+          alert("Invalid API key. Please check and try again.");
+          return;
+        }
+      }
+      
+      // Use the user-provided API key
+      const EPHEMERAL_KEY = apiKey;
       
       // Create a peer connection
       const pc = new RTCPeerConnection();
@@ -51,6 +90,11 @@ export default function App() {
         },
       });
 
+      if (!sdpResponse.ok) {
+        const errorText = await sdpResponse.text();
+        throw new Error(`API request failed: ${errorText}`);
+      }
+
       const answer = {
         type: "answer",
         sdp: await sdpResponse.text(),
@@ -70,7 +114,7 @@ export default function App() {
       dataChannel.close();
     }
 
-    peerConnection.current.getSenders().forEach((sender) => {
+    peerConnection.current?.getSenders().forEach((sender) => {
       if (sender.track) {
         sender.track.stop();
       }
@@ -149,6 +193,13 @@ export default function App() {
     }
   }, [dataChannel]);
 
+  // Validate API key on initial load
+  useEffect(() => {
+    if (apiKey) {
+      validateApiKey(apiKey);
+    }
+  }, []);
+
   return (
     <>
       <nav className="absolute top-0 left-0 right-0 h-16 flex items-center">
@@ -160,7 +211,31 @@ export default function App() {
       <main className="absolute top-16 left-0 right-0 bottom-0">
         <section className="absolute top-0 left-0 right-[380px] bottom-0 flex">
           <section className="absolute top-0 left-0 right-0 bottom-32 px-4 overflow-y-auto">
-            <EventLog events={events} />
+            {!apiKey ? (
+              <div className="flex flex-col items-center justify-center h-full">
+                <div className="bg-white p-6 rounded-lg shadow-md w-full max-w-md">
+                  <h2 className="text-xl mb-4">Enter your OpenAI API Key</h2>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Your API key is stored locally in your browser and never sent to our servers.
+                  </p>
+                  <input
+                    type="password"
+                    className="w-full p-2 border border-gray-300 rounded mb-4"
+                    placeholder="sk-..."
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                  />
+                  <button
+                    className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+                    onClick={() => validateApiKey(apiKey)}
+                  >
+                    Save API Key
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <EventLog events={events} />
+            )}
           </section>
           <section className="absolute h-32 left-0 right-0 bottom-0 p-4">
             <SessionControls
@@ -170,6 +245,9 @@ export default function App() {
               sendTextMessage={sendTextMessage}
               events={events}
               isSessionActive={isSessionActive}
+              apiKey={apiKey}
+              setApiKey={setApiKey}
+              isKeyValid={isKeyValid}
             />
           </section>
         </section>
